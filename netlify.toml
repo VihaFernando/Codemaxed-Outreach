@@ -1,0 +1,11 @@
+[build]
+  command = "npm run build"
+  publish = "dist/client"
+
+# Prerendered routes are served as static files (e.g. /login/index.html).
+# Any path that doesn't match a prerendered file falls back to the app shell
+# so client-side routing (and full-page refreshes on nested routes) keep working.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
