@@ -14,6 +14,9 @@ interface AuthValue {
 const AuthContext = createContext<AuthValue | null>(null);
 
 const PUBLIC_PATHS = new Set(["/login"]);
+/** Trailing slashes (e.g. "/login/") must still match "/login". */
+const isPublicPath = (pathname: string) =>
+  PUBLIC_PATHS.has(pathname) || PUBLIC_PATHS.has(pathname.replace(/\/+$/, ""));
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -37,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
-    const isPublic = PUBLIC_PATHS.has(pathname);
+    const isPublic = isPublicPath(pathname);
     if (!session && !isPublic) {
       navigate({ to: "/login" });
     } else if (session && isPublic) {
@@ -68,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!session && !PUBLIC_PATHS.has(pathname)) {
+  if (!session && !isPublicPath(pathname)) {
     return null;
   }
 
