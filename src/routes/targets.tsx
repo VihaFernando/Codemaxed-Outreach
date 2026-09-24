@@ -21,13 +21,6 @@ import {
 } from "@/lib/data/analytics";
 import { getSalesUsers } from "@/lib/data/referenceData";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   TARGET_METRICS,
   TARGET_METRIC_LABELS,
   TARGET_TIERS,
@@ -201,33 +194,164 @@ function MetricTargetRow({
   );
 }
 
+function ServiceTargetSection({
+  userId,
+  serviceTypeId,
+  serviceName,
+  bundle,
+}: {
+  userId: string;
+  serviceTypeId: string;
+  serviceName: string;
+  bundle: NonNullable<ReturnType<typeof useAnalyticsBundle>["data"]>;
+}) {
+  const [tier, setTier] = useState<TargetTier>("average");
+
+  const metricProgress = getTargetProgress(bundle, tier, userId ? [userId] : [], serviceTypeId);
+  const channelProgress = getOutreachTypeTargetProgress(
+    bundle,
+    tier,
+    userId ? [userId] : [],
+    serviceTypeId,
+  );
+  const outreachTypes = bundle.outreachTypes.filter((t) => t.active);
+
+  const channelTotals = TARGET_TIERS.reduce(
+    (totals, t) => {
+      totals[t] = outreachTargetTotal(bundle, t, userId ? [userId] : [], serviceTypeId);
+      return totals;
+    },
+    { minimum: 0, average: 0, stretch: 0 } as Record<TargetTier, number>,
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{serviceName}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Tabs value={tier} onValueChange={(v) => setTier(v as TargetTier)}>
+          <TabsList>
+            {TARGET_TIERS.map((t) => (
+              <TabsTrigger key={t} value={t}>
+                {TARGET_TIER_LABELS[t]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground">
+            Weekly outreach targets — {TARGET_TIER_LABELS[tier].toLowerCase()}
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <TargetCard
+              label="Prospects contacted"
+              actual={channelProgress.reduce((s, p) => s + p.actual, 0)}
+              target={channelTotals[tier]}
+            />
+          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">By channel</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 sm:p-2">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="px-3 py-2 font-medium">Channel</th>
+                      {TARGET_TIERS.map((t) => (
+                        <th key={t} className="px-3 py-2 font-medium">
+                          {TARGET_TIER_LABELS[t]}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {outreachTypes.map((t) => (
+                      <OutreachTypeTargetRow
+                        key={`${userId}-${serviceTypeId}-${t.id}`}
+                        userId={userId}
+                        serviceTypeId={serviceTypeId}
+                        outreachTypeId={t.id}
+                        name={t.name}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground">
+            Conversion targets — {TARGET_TIER_LABELS[tier].toLowerCase()}
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {metricProgress.map((p) => (
+              <TargetCard
+                key={p.metric}
+                label={TARGET_METRIC_LABELS[p.metric]}
+                actual={p.actual}
+                target={p.target}
+              />
+            ))}
+          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Edit conversion targets</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 sm:p-2">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="px-3 py-2 font-medium">Metric</th>
+                      {TARGET_TIERS.map((t) => (
+                        <th key={t} className="px-3 py-2 font-medium">
+                          {TARGET_TIER_LABELS[t]}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TARGET_METRICS.map((m) => (
+                      <MetricTargetRow
+                        key={`${userId}-${serviceTypeId}-${m}`}
+                        userId={userId}
+                        serviceTypeId={serviceTypeId}
+                        metric={m}
+                        channelTotals={channelTotals}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      </CardContent>
+    </Card>
+  );
+}
+
 function TargetsPage() {
   const { data: bundle } = useAnalyticsBundle();
   const users = getSalesUsers(bundle?.users ?? []);
   const services = (bundle?.serviceTypes ?? []).filter((s) => s.active);
   const [selectedUserId, setUserId] = useState("");
   const userId = selectedUserId || users[0]?.id || "";
-  const [selectedServiceId, setServiceId] = useState("");
-  const serviceTypeId = selectedServiceId || services[0]?.id || "";
-  const [tier, setTier] = useState<TargetTier>("average");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
 
-  const metricProgress = bundle
-    ? getTargetProgress(bundle, tier, userId ? [userId] : [], serviceTypeId)
-    : [];
-  const channelProgress = bundle
-    ? getOutreachTypeTargetProgress(bundle, tier, userId ? [userId] : [], serviceTypeId)
-    : [];
-  const outreachTypes = (bundle?.outreachTypes ?? []).filter((t) => t.active);
+  function toggleService(id: string) {
+    setSelectedServiceIds((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
+  }
 
-  const channelTotals = TARGET_TIERS.reduce(
-    (totals, t) => {
-      totals[t] = bundle
-        ? outreachTargetTotal(bundle, t, userId ? [userId] : [], serviceTypeId)
-        : 0;
-      return totals;
-    },
-    { minimum: 0, average: 0, stretch: 0 } as Record<TargetTier, number>,
-  );
+  const activeServiceIds = selectedServiceIds.filter((id) => services.some((s) => s.id === id));
 
   return (
     <div className="space-y-6">
@@ -249,126 +373,42 @@ function TargetsPage() {
         ))}
       </div>
 
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-muted-foreground">Service</span>
-        <Select value={serviceTypeId} onValueChange={setServiceId}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Select a service" />
-          </SelectTrigger>
-          <SelectContent>
-            {services.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="space-y-2">
+        <span className="text-sm font-medium text-muted-foreground">
+          Select the services to set targets for
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {services.map((s) => (
+            <Button
+              key={s.id}
+              type="button"
+              size="sm"
+              variant={activeServiceIds.includes(s.id) ? "default" : "outline"}
+              onClick={() => toggleService(s.id)}
+            >
+              {s.name}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <Tabs value={tier} onValueChange={(v) => setTier(v as TargetTier)}>
-        <TabsList>
-          {TARGET_TIERS.map((t) => (
-            <TabsTrigger key={t} value={t}>
-              {TARGET_TIER_LABELS[t]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-muted-foreground">
-          Weekly outreach targets — {services.find((s) => s.id === serviceTypeId)?.name ?? "—"} ·{" "}
-          {TARGET_TIER_LABELS[tier].toLowerCase()}
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <TargetCard
-            label="Prospects contacted"
-            actual={channelProgress.reduce((s, p) => s + p.actual, 0)}
-            target={channelTotals[tier]}
-          />
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>By channel</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 sm:p-2">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-3 py-2 font-medium">Channel</th>
-                    {TARGET_TIERS.map((t) => (
-                      <th key={t} className="px-3 py-2 font-medium">
-                        {TARGET_TIER_LABELS[t]}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {outreachTypes.map((t) => (
-                    <OutreachTypeTargetRow
-                      key={`${userId}-${serviceTypeId}-${t.id}`}
-                      userId={userId}
-                      serviceTypeId={serviceTypeId}
-                      outreachTypeId={t.id}
-                      name={t.name}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-muted-foreground">
-          Conversion targets — {services.find((s) => s.id === serviceTypeId)?.name ?? "—"} ·{" "}
-          {TARGET_TIER_LABELS[tier].toLowerCase()}
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {metricProgress.map((p) => (
-            <TargetCard
-              key={p.metric}
-              label={TARGET_METRIC_LABELS[p.metric]}
-              actual={p.actual}
-              target={p.target}
+      {!bundle ? null : activeServiceIds.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Select one or more services above to view and edit their targets.
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {activeServiceIds.map((serviceTypeId) => (
+            <ServiceTargetSection
+              key={`${userId}-${serviceTypeId}`}
+              userId={userId}
+              serviceTypeId={serviceTypeId}
+              serviceName={services.find((s) => s.id === serviceTypeId)?.name ?? "—"}
+              bundle={bundle}
             />
           ))}
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit conversion targets</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 sm:p-2">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-3 py-2 font-medium">Metric</th>
-                    {TARGET_TIERS.map((t) => (
-                      <th key={t} className="px-3 py-2 font-medium">
-                        {TARGET_TIER_LABELS[t]}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {TARGET_METRICS.map((m) => (
-                    <MetricTargetRow
-                      key={`${userId}-${serviceTypeId}-${m}`}
-                      userId={userId}
-                      serviceTypeId={serviceTypeId}
-                      metric={m}
-                      channelTotals={channelTotals}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+      )}
     </div>
   );
 }
