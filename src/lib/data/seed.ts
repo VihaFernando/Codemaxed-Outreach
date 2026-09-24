@@ -51,6 +51,7 @@ const USERS: Database["users"] = [
     email: "vihanga@codemaxed.com",
     initials: "VF",
     active: true,
+    targetsSelectedServiceIds: [],
   },
   {
     id: "usr_kasun",
@@ -59,6 +60,7 @@ const USERS: Database["users"] = [
     email: "kasun@codemaxed.com",
     initials: "KP",
     active: true,
+    targetsSelectedServiceIds: [],
   },
   {
     id: "usr_daniel",
@@ -67,6 +69,7 @@ const USERS: Database["users"] = [
     email: "daniel@codemaxed.com",
     initials: "DS",
     active: true,
+    targetsSelectedServiceIds: [],
   },
   {
     id: "usr_amaya",
@@ -75,6 +78,7 @@ const USERS: Database["users"] = [
     email: "amaya@codemaxed.com",
     initials: "AF",
     active: true,
+    targetsSelectedServiceIds: [],
   },
   {
     id: "usr_admin",
@@ -83,6 +87,7 @@ const USERS: Database["users"] = [
     email: "admin@codemaxed.com",
     initials: "OA",
     active: true,
+    targetsSelectedServiceIds: [],
   },
 ];
 

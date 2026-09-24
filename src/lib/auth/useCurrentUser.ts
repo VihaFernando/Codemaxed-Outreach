@@ -10,6 +10,7 @@ function mapProfile(row: {
   email: string;
   initials: string;
   active: boolean;
+  targets_selected_service_ids: string[];
 }): User {
   return {
     id: row.id,
@@ -18,6 +19,7 @@ function mapProfile(row: {
     email: row.email,
     initials: row.initials,
     active: row.active,
+    targetsSelectedServiceIds: row.targets_selected_service_ids,
   };
 }
 

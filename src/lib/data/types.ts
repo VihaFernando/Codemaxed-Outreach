@@ -12,6 +12,8 @@ export interface User {
   email: string;
   initials: string;
   active: boolean;
+  /** Service types this user last selected on the Targets page. */
+  targetsSelectedServiceIds: ID[];
 }
 
 export interface OutreachType {

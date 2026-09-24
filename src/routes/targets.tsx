@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { PageHeader } from "@/components/app/PageHeader";
 import { TargetCard } from "@/components/app/MetricCard";
 import {
@@ -19,7 +25,8 @@ import {
   getOutreachTypeTargetProgress,
   outreachTargetTotal,
 } from "@/lib/data/analytics";
-import { getSalesUsers } from "@/lib/data/referenceData";
+import { getSalesUsers, useUpdateTargetsSelectedServices } from "@/lib/data/referenceData";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import {
   TARGET_METRICS,
   TARGET_METRIC_LABELS,
@@ -225,11 +232,9 @@ function ServiceTargetSection({
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{serviceName}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <AccordionItem value={serviceTypeId} className="rounded-lg border border-border px-4">
+      <AccordionTrigger className="py-3 text-sm font-semibold">{serviceName}</AccordionTrigger>
+      <AccordionContent className="space-y-4 pb-4">
         <Tabs value={tier} onValueChange={(v) => setTier(v as TargetTier)}>
           <TabsList>
             {TARGET_TIERS.map((t) => (
@@ -240,57 +245,88 @@ function ServiceTargetSection({
           </TabsList>
         </Tabs>
 
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">
-            Weekly outreach targets — {TARGET_TIER_LABELS[tier].toLowerCase()}
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <TargetCard
-              label="Prospects contacted"
-              actual={channelProgress.reduce((s, p) => s + p.actual, 0)}
-              target={channelTotals[tier]}
-            />
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">By channel</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 sm:p-2">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[520px] text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <th className="px-3 py-2 font-medium">Channel</th>
-                      {TARGET_TIERS.map((t) => (
-                        <th key={t} className="px-3 py-2 font-medium">
-                          {TARGET_TIER_LABELS[t]}
-                        </th>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                By channel
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                {channelProgress.reduce((s, p) => s + p.actual, 0)} / {channelTotals[tier]}{" "}
+                contacted
+              </span>
+            </div>
+            <Card className="py-0">
+              <CardContent className="p-0 sm:p-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[420px] text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="px-3 py-1.5 font-medium">Channel</th>
+                        {TARGET_TIERS.map((t) => (
+                          <th key={t} className="px-3 py-1.5 font-medium">
+                            {TARGET_TIER_LABELS[t]}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {outreachTypes.map((t) => (
+                        <OutreachTypeTargetRow
+                          key={`${userId}-${serviceTypeId}-${t.id}`}
+                          userId={userId}
+                          serviceTypeId={serviceTypeId}
+                          outreachTypeId={t.id}
+                          name={t.name}
+                        />
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {outreachTypes.map((t) => (
-                      <OutreachTypeTargetRow
-                        key={`${userId}-${serviceTypeId}-${t.id}`}
-                        userId={userId}
-                        serviceTypeId={serviceTypeId}
-                        outreachTypeId={t.id}
-                        name={t.name}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
 
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">
-            Conversion targets — {TARGET_TIER_LABELS[tier].toLowerCase()}
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {metricProgress.map((p) => (
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Conversion targets
+            </h3>
+            <Card className="py-0">
+              <CardContent className="p-0 sm:p-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[420px] text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="px-3 py-1.5 font-medium">Metric</th>
+                        {TARGET_TIERS.map((t) => (
+                          <th key={t} className="px-3 py-1.5 font-medium">
+                            {TARGET_TIER_LABELS[t]}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {TARGET_METRICS.map((m) => (
+                        <MetricTargetRow
+                          key={`${userId}-${serviceTypeId}-${m}`}
+                          userId={userId}
+                          serviceTypeId={serviceTypeId}
+                          metric={m}
+                          channelTotals={channelTotals}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {metricProgress
+            .filter((p) => p.metric !== "outreach")
+            .map((p) => (
               <TargetCard
                 key={p.metric}
                 label={TARGET_METRIC_LABELS[p.metric]}
@@ -298,60 +334,36 @@ function ServiceTargetSection({
                 target={p.target}
               />
             ))}
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Edit conversion targets</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 sm:p-2">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[520px] text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <th className="px-3 py-2 font-medium">Metric</th>
-                      {TARGET_TIERS.map((t) => (
-                        <th key={t} className="px-3 py-2 font-medium">
-                          {TARGET_TIER_LABELS[t]}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {TARGET_METRICS.map((m) => (
-                      <MetricTargetRow
-                        key={`${userId}-${serviceTypeId}-${m}`}
-                        userId={userId}
-                        serviceTypeId={serviceTypeId}
-                        metric={m}
-                        channelTotals={channelTotals}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-      </CardContent>
-    </Card>
+        </div>
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
 function TargetsPage() {
   const { data: bundle } = useAnalyticsBundle();
+  const { data: me } = useCurrentUser();
+  const updateSelectedServices = useUpdateTargetsSelectedServices();
   const users = getSalesUsers(bundle?.users ?? []);
   const services = (bundle?.serviceTypes ?? []).filter((s) => s.active);
   const [selectedUserId, setUserId] = useState("");
   const userId = selectedUserId || users[0]?.id || "";
-  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
 
-  function toggleService(id: string) {
-    setSelectedServiceIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    );
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[] | null>(null);
+  if (selectedServiceIds === null && me) {
+    setSelectedServiceIds(me.targetsSelectedServiceIds);
   }
 
-  const activeServiceIds = selectedServiceIds.filter((id) => services.some((s) => s.id === id));
+  function toggleService(id: string) {
+    const current = selectedServiceIds ?? [];
+    const next = current.includes(id) ? current.filter((s) => s !== id) : [...current, id];
+    setSelectedServiceIds(next);
+    if (me) updateSelectedServices.mutate({ id: me.id, serviceIds: next });
+  }
+
+  const activeServiceIds = (selectedServiceIds ?? []).filter((id) =>
+    services.some((s) => s.id === id),
+  );
 
   return (
     <div className="space-y-6">
@@ -397,7 +409,7 @@ function TargetsPage() {
           Select one or more services above to view and edit their targets.
         </p>
       ) : (
-        <div className="space-y-6">
+        <Accordion type="multiple" defaultValue={activeServiceIds} className="space-y-3">
           {activeServiceIds.map((serviceTypeId) => (
             <ServiceTargetSection
               key={`${userId}-${serviceTypeId}`}
@@ -407,7 +419,7 @@ function TargetsPage() {
               bundle={bundle}
             />
           ))}
-        </div>
+        </Accordion>
       )}
     </div>
   );

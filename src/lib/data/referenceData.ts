@@ -40,6 +40,7 @@ async function fetchProfiles(): Promise<User[]> {
     email: r["email"],
     initials: r["initials"],
     active: r["active"],
+    targetsSelectedServiceIds: r["targets_selected_service_ids"],
   }));
 }
 
@@ -146,6 +147,24 @@ export function useUpdateProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.profiles() });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+}
+
+/** Persists the current user's last-selected services on the Targets page. */
+export function useUpdateTargetsSelectedServices() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, serviceIds }: { id: ID; serviceIds: ID[] }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ targets_selected_service_ids: serviceIds })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: qk.profiles() });
+      queryClient.invalidateQueries({ queryKey: ["profile", id] });
     },
   });
 }

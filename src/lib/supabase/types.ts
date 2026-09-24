@@ -49,6 +49,7 @@ export type ProfileRow = {
   email: string;
   initials: string;
   active: boolean;
+  targets_selected_service_ids: string[];
   created_at: string;
 };
 
