@@ -12,9 +12,12 @@ export default defineConfig({
   // currently fails on Netlify after the client build has already succeeded.
   nitro: false,
   tanstackStart: {
+    // Prerendering is disabled: every route is gated behind Supabase auth
+    // (AuthProvider checks the session client-side), so a prerendered page
+    // only ever captures the pre-auth loading skeleton, never real content —
+    // there's no SEO benefit to prerendering an internal, login-only CRM.
     prerender: {
-      enabled: true,
-      crawlLinks: true,
+      enabled: false,
     },
     server: { entry: "server" },
   },
