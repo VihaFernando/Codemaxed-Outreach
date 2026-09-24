@@ -1,0 +1,21 @@
+/** Centralized react-query key builders so invalidation keys are typo-proof. */
+export const qk = {
+  profiles: () => ["profiles"] as const,
+  profile: (id?: string) => ["profile", id] as const,
+  outreachTypes: () => ["outreachTypes"] as const,
+  serviceTypes: () => ["serviceTypes"] as const,
+  leadSources: () => ["leadSources"] as const,
+  prospects: () => ["prospects"] as const,
+  prospect: (id: string) => ["prospect", id] as const,
+  opportunities: (prospectId?: string) => ["opportunities", prospectId ?? "all"] as const,
+  outreach: () => ["outreach"] as const,
+  activities: (prospectId?: string) => ["activities", prospectId ?? "all"] as const,
+  followUps: () => ["followUps"] as const,
+  meetings: () => ["meetings"] as const,
+  proposals: () => ["proposals"] as const,
+  deals: () => ["deals"] as const,
+  targets: () => ["targets"] as const,
+  outreachTypeTargets: () => ["outreachTypeTargets"] as const,
+  notifications: () => ["notifications"] as const,
+  analyticsBundle: () => ["analyticsBundle"] as const,
+};
