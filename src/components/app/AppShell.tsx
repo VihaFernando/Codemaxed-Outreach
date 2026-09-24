@@ -282,7 +282,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [outreachOpen, setOutreachOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname === "/login/") {
     return <>{children}</>;
   }
 
