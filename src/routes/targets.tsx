@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -69,6 +69,7 @@ function TierInput({
   max?: number;
 }) {
   const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
   return (
     <Input
       className="h-8 w-20 numeric"
@@ -347,7 +348,7 @@ function TargetsPage() {
   const users = getSalesUsers(bundle?.users ?? []);
   const services = (bundle?.serviceTypes ?? []).filter((s) => s.active);
   const [selectedUserId, setUserId] = useState("");
-  const userId = selectedUserId || users[0]?.id || "";
+  const userId = selectedUserId || me?.id || users[0]?.id || "";
 
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[] | null>(null);
   if (selectedServiceIds === null && me) {
