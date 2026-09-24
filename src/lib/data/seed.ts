@@ -536,17 +536,20 @@ export function buildSeedDatabase(): Database {
     closed: 1,
   };
   SALES_USER_IDS.forEach((userId) => {
-    TARGET_METRICS.forEach((metric) => {
-      const average = weeklyAverageByMetric[metric]!;
-      targets.push({
-        id: `tgt_${userId}_${metric}`,
-        userId,
-        metric,
-        minimum: Math.round(average * 0.7),
-        average,
-        stretch: Math.round(average * 1.3),
-        effectiveFrom: at(-60),
-        updatedAt: at(-60),
+    SERVICE_TYPES.forEach((service) => {
+      TARGET_METRICS.forEach((metric) => {
+        const average = weeklyAverageByMetric[metric]!;
+        targets.push({
+          id: `tgt_${userId}_${service.id}_${metric}`,
+          userId,
+          serviceTypeId: service.id,
+          metric,
+          minimum: Math.round(average * 0.7),
+          average,
+          stretch: Math.round(average * 1.3),
+          effectiveFrom: at(-60),
+          updatedAt: at(-60),
+        });
       });
     });
   });

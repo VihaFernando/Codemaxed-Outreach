@@ -8,6 +8,7 @@ function mapTarget(r: TargetRow): Target {
   return {
     id: r["id"],
     userId: r["user_id"],
+    serviceTypeId: r["service_type_id"],
     metric: r["metric"],
     minimum: Number(r["minimum"]),
     average: Number(r["average"]),
@@ -21,6 +22,7 @@ function mapOutreachTypeTarget(r: OutreachTypeTargetRow): OutreachTypeTarget {
   return {
     id: r["id"],
     userId: r["user_id"],
+    serviceTypeId: r["service_type_id"],
     outreachTypeId: r["outreach_type_id"],
     minimum: Number(r["minimum"]),
     average: Number(r["average"]),
@@ -65,23 +67,26 @@ export function useUpsertTarget() {
   return useMutation({
     mutationFn: async ({
       userId,
+      serviceTypeId,
       metric,
       patch,
     }: {
       userId: ID;
+      serviceTypeId: ID;
       metric: TargetMetric;
       patch: { minimum?: number; average?: number; stretch?: number };
     }) => {
       const { error } = await supabase.from("targets").upsert(
         {
           user_id: userId,
+          service_type_id: serviceTypeId,
           metric,
           ...(patch.minimum !== undefined ? { minimum: patch.minimum } : {}),
           ...(patch.average !== undefined ? { average: patch.average } : {}),
           ...(patch.stretch !== undefined ? { stretch: patch.stretch } : {}),
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "user_id,metric" },
+        { onConflict: "user_id,service_type_id,metric" },
       );
       if (error) throw error;
     },
@@ -94,23 +99,26 @@ export function useUpsertOutreachTypeTarget() {
   return useMutation({
     mutationFn: async ({
       userId,
+      serviceTypeId,
       outreachTypeId,
       patch,
     }: {
       userId: ID;
+      serviceTypeId: ID;
       outreachTypeId: ID;
       patch: { minimum?: number; average?: number; stretch?: number };
     }) => {
       const { error } = await supabase.from("outreach_type_targets").upsert(
         {
           user_id: userId,
+          service_type_id: serviceTypeId,
           outreach_type_id: outreachTypeId,
           ...(patch.minimum !== undefined ? { minimum: patch.minimum } : {}),
           ...(patch.average !== undefined ? { average: patch.average } : {}),
           ...(patch.stretch !== undefined ? { stretch: patch.stretch } : {}),
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "user_id,outreach_type_id" },
+        { onConflict: "user_id,service_type_id,outreach_type_id" },
       );
       if (error) throw error;
     },

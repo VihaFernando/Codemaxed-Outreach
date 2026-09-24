@@ -185,6 +185,7 @@ export type DealRow = {
 export type TargetRow = {
   id: string;
   user_id: string;
+  service_type_id: string;
   metric: TargetMetricRow;
   minimum: number;
   average: number;
@@ -196,6 +197,7 @@ export type TargetRow = {
 export type OutreachTypeTargetRow = {
   id: string;
   user_id: string;
+  service_type_id: string;
   outreach_type_id: string;
   minimum: number;
   average: number;
@@ -337,13 +339,21 @@ export type Database = {
       };
       targets: {
         Row: TargetRow;
-        Insert: Partial<TargetRow> & { user_id: string; metric: TargetMetricRow };
+        Insert: Partial<TargetRow> & {
+          user_id: string;
+          service_type_id: string;
+          metric: TargetMetricRow;
+        };
         Update: Partial<TargetRow>;
         Relationships: [];
       };
       outreach_type_targets: {
         Row: OutreachTypeTargetRow;
-        Insert: Partial<OutreachTypeTargetRow> & { user_id: string; outreach_type_id: string };
+        Insert: Partial<OutreachTypeTargetRow> & {
+          user_id: string;
+          service_type_id: string;
+          outreach_type_id: string;
+        };
         Update: Partial<OutreachTypeTargetRow>;
         Relationships: [];
       };

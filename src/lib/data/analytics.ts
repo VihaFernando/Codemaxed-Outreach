@@ -369,20 +369,28 @@ const METRIC_ACTUAL: Record<TargetMetric, (m: CoreMetrics) => number> = {
   closed: (m) => m.closed,
 };
 
-/** Sum of every active channel's target for a tier, across the given users. */
+/**
+ * Sum of every active channel's target for a tier, across the given users.
+ * When `serviceTypeId` is omitted (or "all"), sums across every service too —
+ * used for the dashboard's combined rollup.
+ */
 export function outreachTargetTotal(
   bundle: AnalyticsBundle,
   tier: TargetTier,
   userIds: ID[],
+  serviceTypeId?: ID | "all",
 ): number {
   return bundle.outreachTypes
     .filter((t) => t.active)
     .reduce((sum, type) => {
       const perUser = userIds.reduce((s, userId) => {
-        const t = bundle.outreachTypeTargets.find(
-          (x) => x.userId === userId && x.outreachTypeId === type.id,
+        const matches = bundle.outreachTypeTargets.filter(
+          (x) =>
+            x.userId === userId &&
+            x.outreachTypeId === type.id &&
+            (!serviceTypeId || serviceTypeId === "all" || x.serviceTypeId === serviceTypeId),
         );
-        return s + tierValue(t, tier);
+        return s + matches.reduce((sub, x) => sub + tierValue(x, tier), 0);
       }, 0);
       return sum + perUser;
     }, 0);
@@ -398,17 +406,32 @@ export function getTargetProgress(
   bundle: AnalyticsBundle,
   tier: TargetTier,
   userIds: ID[],
+  serviceTypeId?: ID | "all",
 ): TargetProgress[] {
   const range = buildRange("this_week");
-  const metrics = getMetrics(bundle, range, { userIds });
-  const outreachCap = outreachTargetTotal(bundle, tier, userIds);
+  const metrics = getMetrics(
+    bundle,
+    range,
+    serviceTypeId ? { userIds, serviceTypeId } : { userIds },
+  );
+  const services =
+    serviceTypeId && serviceTypeId !== "all"
+      ? [serviceTypeId]
+      : bundle.serviceTypes.filter((s) => s.active).map((s) => s.id);
+  const outreachCap = outreachTargetTotal(bundle, tier, userIds, serviceTypeId);
   return TARGET_METRICS.map((metric) => {
     const target =
       metric === "outreach"
         ? outreachCap
-        : userIds.reduce((sum, userId) => {
-            const t = bundle.targets.find((x) => x.userId === userId && x.metric === metric);
-            return sum + Math.min(tierValue(t, tier), outreachCap);
+        : services.reduce((serviceSum, svcId) => {
+            const cap = outreachTargetTotal(bundle, tier, userIds, svcId);
+            const raw = userIds.reduce((sum, userId) => {
+              const t = bundle.targets.find(
+                (x) => x.userId === userId && x.metric === metric && x.serviceTypeId === svcId,
+              );
+              return sum + tierValue(t, tier);
+            }, 0);
+            return serviceSum + Math.min(raw, cap);
           }, 0);
     const actual = METRIC_ACTUAL[metric](metrics);
     return {
@@ -431,27 +454,36 @@ export interface OutreachTypeTargetProgress {
   progress: number;
 }
 
-/** Per-channel weekly outreach volume vs. target, for the given tier. */
+/**
+ * Per-channel weekly outreach volume vs. target, for the given tier. When
+ * `serviceTypeId` is omitted (or "all"), sums targets and actuals across
+ * every service.
+ */
 export function getOutreachTypeTargetProgress(
   bundle: AnalyticsBundle,
   tier: TargetTier,
   userIds: ID[],
+  serviceTypeId?: ID | "all",
 ): OutreachTypeTargetProgress[] {
   const range = buildRange("this_week");
   return bundle.outreachTypes
     .filter((t) => t.active)
     .map((type) => {
       const target = userIds.reduce((sum, userId) => {
-        const t = bundle.outreachTypeTargets.find(
-          (x) => x.userId === userId && x.outreachTypeId === type.id,
+        const matches = bundle.outreachTypeTargets.filter(
+          (x) =>
+            x.userId === userId &&
+            x.outreachTypeId === type.id &&
+            (!serviceTypeId || serviceTypeId === "all" || x.serviceTypeId === serviceTypeId),
         );
-        return sum + tierValue(t, tier);
+        return sum + matches.reduce((s, x) => s + tierValue(x, tier), 0);
       }, 0);
       const actual = bundle.outreach.filter(
         (o) =>
           o.outreachTypeId === type.id &&
           inRange(o.occurredAt, range) &&
-          (!userIds.length || userIds.includes(o.ownerId)),
+          (!userIds.length || userIds.includes(o.ownerId)) &&
+          (!serviceTypeId || serviceTypeId === "all" || o.serviceTypeId === serviceTypeId),
       ).length;
       return {
         outreachTypeId: type.id,

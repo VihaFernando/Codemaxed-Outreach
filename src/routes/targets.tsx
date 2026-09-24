@@ -21,6 +21,13 @@ import {
 } from "@/lib/data/analytics";
 import { getSalesUsers } from "@/lib/data/referenceData";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   TARGET_METRICS,
   TARGET_METRIC_LABELS,
   TARGET_TIERS,
@@ -36,13 +43,13 @@ export const Route = createFileRoute("/targets")({
       {
         name: "description",
         content:
-          "Set weekly Minimum, Average and Stretch targets per outreach channel and per pipeline metric.",
+          "Set weekly Minimum, Average and Stretch targets per service, split across outreach channels and pipeline metrics.",
       },
       { property: "og:title", content: "Targets — CodeMaxed Outreach Hub" },
       {
         property: "og:description",
         content:
-          "Set weekly Minimum, Average and Stretch targets per outreach channel and per pipeline metric.",
+          "Set weekly Minimum, Average and Stretch targets per service, split across outreach channels and pipeline metrics.",
       },
     ],
   }),
@@ -81,20 +88,27 @@ function TierInput({
 
 function OutreachTypeTargetRow({
   userId,
+  serviceTypeId,
   outreachTypeId,
   name,
 }: {
   userId: string;
+  serviceTypeId: string;
   outreachTypeId: string;
   name: string;
 }) {
   const { data: targets = [] } = useOutreachTypeTargets();
   const upsert = useUpsertOutreachTypeTarget();
-  const target = targets.find((t) => t.userId === userId && t.outreachTypeId === outreachTypeId);
+  const target = targets.find(
+    (t) =>
+      t.userId === userId &&
+      t.serviceTypeId === serviceTypeId &&
+      t.outreachTypeId === outreachTypeId,
+  );
 
   function save(tier: TargetTier, next: number) {
     upsert.mutate(
-      { userId, outreachTypeId, patch: { [tier]: next } },
+      { userId, serviceTypeId, outreachTypeId, patch: { [tier]: next } },
       {
         onSuccess: () =>
           toast.success(`${name} ${TARGET_TIER_LABELS[tier].toLowerCase()} target updated`),
@@ -122,16 +136,20 @@ function OutreachTypeTargetRow({
 
 function MetricTargetRow({
   userId,
+  serviceTypeId,
   metric,
   channelTotals,
 }: {
   userId: string;
+  serviceTypeId: string;
   metric: TargetMetric;
   channelTotals: Record<TargetTier, number>;
 }) {
   const { data: targets = [] } = useTargets();
   const upsert = useUpsertTarget();
-  const target = targets.find((t) => t.userId === userId && t.metric === metric);
+  const target = targets.find(
+    (t) => t.userId === userId && t.serviceTypeId === serviceTypeId && t.metric === metric,
+  );
 
   if (metric === "outreach") {
     // Outreach is derived from the sum of per-channel targets — read-only here.
@@ -154,7 +172,7 @@ function MetricTargetRow({
     const cap = channelTotals[tier];
     const clamped = Math.min(next, cap);
     upsert.mutate(
-      { userId, metric, patch: { [tier]: clamped } },
+      { userId, serviceTypeId, metric, patch: { [tier]: clamped } },
       {
         onSuccess: () =>
           toast.success(
@@ -186,19 +204,26 @@ function MetricTargetRow({
 function TargetsPage() {
   const { data: bundle } = useAnalyticsBundle();
   const users = getSalesUsers(bundle?.users ?? []);
+  const services = (bundle?.serviceTypes ?? []).filter((s) => s.active);
   const [selectedUserId, setUserId] = useState("");
   const userId = selectedUserId || users[0]?.id || "";
+  const [selectedServiceId, setServiceId] = useState("");
+  const serviceTypeId = selectedServiceId || services[0]?.id || "";
   const [tier, setTier] = useState<TargetTier>("average");
 
-  const metricProgress = bundle ? getTargetProgress(bundle, tier, userId ? [userId] : []) : [];
+  const metricProgress = bundle
+    ? getTargetProgress(bundle, tier, userId ? [userId] : [], serviceTypeId)
+    : [];
   const channelProgress = bundle
-    ? getOutreachTypeTargetProgress(bundle, tier, userId ? [userId] : [])
+    ? getOutreachTypeTargetProgress(bundle, tier, userId ? [userId] : [], serviceTypeId)
     : [];
   const outreachTypes = (bundle?.outreachTypes ?? []).filter((t) => t.active);
 
   const channelTotals = TARGET_TIERS.reduce(
     (totals, t) => {
-      totals[t] = bundle ? outreachTargetTotal(bundle, t, userId ? [userId] : []) : 0;
+      totals[t] = bundle
+        ? outreachTargetTotal(bundle, t, userId ? [userId] : [], serviceTypeId)
+        : 0;
       return totals;
     },
     { minimum: 0, average: 0, stretch: 0 } as Record<TargetTier, number>,
@@ -208,7 +233,7 @@ function TargetsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Targets"
-        description="Weekly Minimum, Average and Stretch targets per outreach channel and per pipeline metric."
+        description="Weekly Minimum, Average and Stretch targets per service, split across outreach channels."
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -224,6 +249,22 @@ function TargetsPage() {
         ))}
       </div>
 
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium text-muted-foreground">Service</span>
+        <Select value={serviceTypeId} onValueChange={setServiceId}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Select a service" />
+          </SelectTrigger>
+          <SelectContent>
+            {services.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Tabs value={tier} onValueChange={(v) => setTier(v as TargetTier)}>
         <TabsList>
           {TARGET_TIERS.map((t) => (
@@ -236,7 +277,8 @@ function TargetsPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">
-          Weekly outreach targets — {TARGET_TIER_LABELS[tier].toLowerCase()}
+          Weekly outreach targets — {services.find((s) => s.id === serviceTypeId)?.name ?? "—"} ·{" "}
+          {TARGET_TIER_LABELS[tier].toLowerCase()}
         </h2>
         <div className="grid gap-4 sm:grid-cols-3">
           <TargetCard
@@ -265,8 +307,9 @@ function TargetsPage() {
                 <tbody>
                   {outreachTypes.map((t) => (
                     <OutreachTypeTargetRow
-                      key={`${userId}-${t.id}`}
+                      key={`${userId}-${serviceTypeId}-${t.id}`}
                       userId={userId}
+                      serviceTypeId={serviceTypeId}
                       outreachTypeId={t.id}
                       name={t.name}
                     />
@@ -280,7 +323,8 @@ function TargetsPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">
-          Conversion targets — {TARGET_TIER_LABELS[tier].toLowerCase()}
+          Conversion targets — {services.find((s) => s.id === serviceTypeId)?.name ?? "—"} ·{" "}
+          {TARGET_TIER_LABELS[tier].toLowerCase()}
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {metricProgress.map((p) => (
@@ -312,8 +356,9 @@ function TargetsPage() {
                 <tbody>
                   {TARGET_METRICS.map((m) => (
                     <MetricTargetRow
-                      key={`${userId}-${m}`}
+                      key={`${userId}-${serviceTypeId}-${m}`}
                       userId={userId}
+                      serviceTypeId={serviceTypeId}
                       metric={m}
                       channelTotals={channelTotals}
                     />

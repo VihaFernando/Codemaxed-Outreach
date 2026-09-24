@@ -241,10 +241,11 @@ export const TARGET_TIER_LABELS: Record<TargetTier, string> = {
   stretch: "Stretch",
 };
 
-/** All targets are weekly. */
+/** All targets are weekly, and scoped to one service. */
 export interface Target {
   id: ID;
   userId: ID;
+  serviceTypeId: ID;
   metric: TargetMetric;
   minimum: number;
   average: number;
@@ -253,10 +254,11 @@ export interface Target {
   updatedAt: string;
 }
 
-/** Weekly outreach-volume target for one team member on one outreach channel. */
+/** Weekly outreach-volume target for one team member, one service, on one outreach channel. */
 export interface OutreachTypeTarget {
   id: ID;
   userId: ID;
+  serviceTypeId: ID;
   outreachTypeId: ID;
   minimum: number;
   average: number;
