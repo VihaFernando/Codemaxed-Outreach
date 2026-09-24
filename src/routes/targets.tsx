@@ -349,22 +349,27 @@ function TargetsPage() {
   const services = (bundle?.serviceTypes ?? []).filter((s) => s.active);
   const [selectedUserId, setUserId] = useState("");
   const userId = selectedUserId || me?.id || users[0]?.id || "";
+  const viewedUser = users.find((u) => u.id === userId);
 
-  const [selectedServiceIds, setSelectedServiceIds] = useState<string[] | null>(null);
-  if (selectedServiceIds === null && me) {
-    setSelectedServiceIds(me.targetsSelectedServiceIds);
-  }
+  // Local override so toggling feels instant; reset whenever the viewed user
+  // changes so we fall back to reading that user's own saved selection.
+  const [localOverride, setLocalOverride] = useState<{
+    userId: string;
+    serviceIds: string[];
+  } | null>(null);
+  const selectedServiceIds =
+    localOverride && localOverride.userId === userId
+      ? localOverride.serviceIds
+      : (viewedUser?.targetsSelectedServiceIds ?? []);
 
   function toggleService(id: string) {
-    const current = selectedServiceIds ?? [];
+    const current = selectedServiceIds;
     const next = current.includes(id) ? current.filter((s) => s !== id) : [...current, id];
-    setSelectedServiceIds(next);
-    if (me) updateSelectedServices.mutate({ id: me.id, serviceIds: next });
+    setLocalOverride({ userId, serviceIds: next });
+    updateSelectedServices.mutate({ id: userId, serviceIds: next });
   }
 
-  const activeServiceIds = (selectedServiceIds ?? []).filter((id) =>
-    services.some((s) => s.id === id),
-  );
+  const activeServiceIds = selectedServiceIds.filter((id) => services.some((s) => s.id === id));
 
   return (
     <div className="space-y-6">
